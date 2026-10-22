@@ -14,8 +14,7 @@ import { AssistantMessageComponent, copyToClipboard, type ExtensionAPI, type Ext
 import { type Component, Markdown, type TUI, TuiAltScreen, type TuiMouseEvent, type TuiMouseEventResult, visibleWidth } from "@earendil-works/pi-tui";
 
 type Token = { type: string; text?: string };
-type Kind = "code" | "quote";
-type Block = { kind: Kind; text: string };
+type Block = { text: string };
 type Hit = { row: number; start: number; end: number; block: number };
 
 type MarkdownInternals = {
@@ -32,10 +31,9 @@ type AssistantInternals = {
 const ORIGINAL = Symbol.for("pi-copy-button.updateContent");
 type PatchedProto = AssistantInternals & { [ORIGINAL]?: AssistantInternals["updateContent"] };
 
-// Zero-width OSC markers survive Markdown's wrapping and padding; we strip them before display.
-const start = (i: number) => `\x1b]7799;s${i}\x07`;
-const end = (i: number) => `\x1b]7799;e${i}\x07`;
-const MARKER = /\x1b\]7799;([se])(\d+)\x07/g;
+// A zero-width OSC marker survives Markdown's wrapping and padding; we strip it before display.
+const mark = (i: number) => `\x1b]7799;${i}\x07`;
+const MARKER = /\x1b\]7799;(\d+)\x07/g;
 
 const LABEL = "⧉ copy";
 const DONE = "✓ copied";
@@ -62,12 +60,11 @@ function addButtons(md: Markdown): void {
 		depth++;
 		try {
 			const lines = base.renderToken.call(md, token, width, nextTokenType, styleContext);
-			const kind: Kind | undefined = token.type === "code" ? "code" : token.type === "blockquote" ? "quote" : undefined;
-			if (top && kind && token.text && lines.some((l) => l !== "")) {
-				const i = blocks.push({ kind, text: token.text }) - 1;
+			const copyable = token.type === "code" || token.type === "blockquote";
+			if (top && copyable && token.text && lines.some((l) => l !== "")) {
+				const i = blocks.push({ text: token.text }) - 1;
 				const last = lines.findLastIndex((l) => l !== "");
-				lines[0] = start(i) + lines[0];
-				lines[last] = end(i) + lines[last];
+				lines[last] = mark(i) + lines[last];
 			}
 			return lines;
 		} finally {
@@ -105,7 +102,7 @@ function addButtons(md: Markdown): void {
 	};
 }
 
-/** Strips markers and puts a label after the content of each block's first (code) or last (quote) row. */
+/** Strips markers and right-aligns a label on each block's last row (a code block's closing fence). */
 function decorate(raw: string[], blocks: Block[], copied: number | undefined, width: number): { lines: string[]; hits: Hit[] } {
 	const lines: string[] = [];
 	const hits: Hit[] = [];
@@ -113,25 +110,25 @@ function decorate(raw: string[], blocks: Block[], copied: number | undefined, wi
 	for (const line of raw) {
 		const marks = [...line.matchAll(MARKER)];
 		const clean = marks.length > 0 ? line.replace(MARKER, "") : line;
-		const at = marks.find(([, edge, i]) => blocks[Number(i)]?.kind === (edge === "s" ? "code" : "quote"));
+		const at = marks.find(([, i]) => blocks[Number(i)] !== undefined);
 		if (!show || !at) {
 			lines.push(clean);
 			continue;
 		}
-		const block = Number(at[2]);
+		const block = Number(at[1]);
 		const label = copied === block ? DONE : LABEL;
+		const labelWidth = Math.max(visibleWidth(LABEL), visibleWidth(DONE)); // fixed column, so "copied" doesn't shift
+		const col = Math.max(0, width - labelWidth - 1);
 		const body = clean.trimEnd();
-		const col = visibleWidth(body) + 2;
-		const labelWidth = visibleWidth(label);
-		if (col + labelWidth <= width) {
+		const bodyWidth = visibleWidth(body);
+		if (bodyWidth + 2 <= col) {
 			hits.push({ row: lines.length, start: col, end: col + labelWidth, block });
-			lines.push(`${body}  ${dim(label)}${" ".repeat(width - col - labelWidth)}`);
+			lines.push(`${body}${" ".repeat(col - bodyWidth)}${dim(label.padEnd(labelWidth))}${" ".repeat(Math.max(0, width - col - labelWidth))}`);
 		} else {
-			// No room after a full-width quote line: put the label on its own row below.
+			// The last row is too long to share: right-align the label on its own row below.
 			lines.push(clean);
-			const indent = Math.min(2, Math.max(0, width - labelWidth));
-			hits.push({ row: lines.length, start: indent, end: indent + labelWidth, block });
-			lines.push(`${" ".repeat(indent)}${dim(label)}${" ".repeat(Math.max(0, width - indent - labelWidth))}`);
+			hits.push({ row: lines.length, start: col, end: col + labelWidth, block });
+			lines.push(`${" ".repeat(col)}${dim(label.padEnd(labelWidth))}${" ".repeat(Math.max(0, width - col - labelWidth))}`);
 		}
 	}
 	return { lines, hits };
