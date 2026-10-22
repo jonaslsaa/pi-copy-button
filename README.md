@@ -2,7 +2,7 @@
 
 Click `⧉ copy` next to a code block or a blockquote in [Pi](https://github.com/earendil-works/pi)'s transcript to copy it.
 
-![Pi transcript with a "⧉ copy" label on a code block and "✓ copied" on a quote](docs/screenshot.png)
+![Pi transcript with a "⧉ copy" label on a code block and "✓ copied" on a quote](https://raw.githubusercontent.com/jonaslsaa/pi-copy-button/main/docs/screenshot.png)
 
 ```
 pi install npm:pi-copy-button
