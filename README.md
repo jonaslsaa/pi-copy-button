@@ -1,21 +1,27 @@
 # pi-copy-button
 
-Click `⧉ copy` next to a code block or a blockquote in Pi's transcript to copy it.
+Click `⧉ copy` next to a code block or a blockquote in [Pi](https://github.com/earendil-works/pi)'s transcript to copy it.
 
-- Code blocks: label on the opening fence; copies the code without fences or indent.
-- Blockquotes: label after the quote's last line; copies the quote's Markdown without the `>` markers.
-- Shows `✓ copied` for 1.5s. Plain clicks elsewhere and drag-selection behave as before.
-- Fullscreen TUI only (Pi's default `tuiMode`); hidden in regular mode, where the terminal owns the mouse.
-- Labels appear once a message has finished streaming. Only assistant replies, not thinking or your own messages.
+```
+pi install npm:pi-copy-button
+```
 
-Install: `pi install ~/Documents/Personal/pi-copy-button`
+- The label sits right-aligned on the block's last line, and shows `✓ copied` for 1.5s.
+- Code blocks copy the code without fences or indent. Quotes copy their Markdown without the `>` markers.
+- Only finished assistant replies get labels (not thinking, not your own messages).
+- Fullscreen TUI only (Pi's default `tuiMode`). In regular mode the terminal owns the mouse.
+- Plain clicks elsewhere and drag-selection work as before.
 
-## How (hacky)
+## How it works (hacky)
 
-Pi has no hook for assistant markdown rendering, so `index.ts` wraps `AssistantMessageComponent.prototype.updateContent`
-and, per finished message's `Markdown`, its private `renderToken`/`render`, and adds `handleMouse`.
-Top-level `code`/`blockquote` tokens get a zero-width OSC marker on their first/last line, which survives wrapping;
-`render` strips the markers and draws the label there. Built against Pi 1.4.0; a Pi update that renames these
-internals turns it into a no-op rather than breaking Pi.
+Pi has no public hook for rendering parts of assistant messages ([earendil-works/pi#11276](https://github.com/earendil-works/pi/issues/11276)),
+so `index.ts` wraps `AssistantMessageComponent.prototype.updateContent` and, for each finished message's `Markdown`,
+its private `renderToken`/`render`, and adds `handleMouse`. Top-level `code`/`blockquote` tokens get a zero-width
+marker on their last line, which survives wrapping; `render` strips it and draws the label there.
 
-Typecheck: `tsc -p .` (paths point at the installed Pi 1.4.0 typings).
+Built against Pi 1.4.0. If a Pi update renames these internals, the labels just disappear; Pi keeps working.
+
+## Releasing
+
+Bump `version` in `package.json`, merge, then publish a GitHub release tagged `v<version>`.
+The Publish workflow waits for approval and publishes to npm with trusted publishing (no token).

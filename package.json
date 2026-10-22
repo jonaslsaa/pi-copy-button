@@ -1,9 +1,25 @@
 {
   "name": "pi-copy-button",
   "version": "0.1.0",
-  "private": true,
   "description": "Click \"⧉ copy\" on code blocks and quotes in Pi's fullscreen transcript",
   "type": "module",
-  "keywords": ["pi-package"],
-  "pi": { "extensions": ["./index.ts"] }
+  "keywords": ["pi-package", "pi-extension", "copy", "clipboard"],
+  "pi": { "extensions": ["./index.ts"] },
+  "scripts": { "check": "tsc" },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.4.0",
+    "@earendil-works/pi-tui": "1.4.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "author": "Jonas",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/jonaslsaa/pi-copy-button.git" },
+  "homepage": "https://github.com/jonaslsaa/pi-copy-button#readme",
+  "bugs": { "url": "https://github.com/jonaslsaa/pi-copy-button/issues" },
+  "files": ["index.ts", "README.md", "LICENSE"]
 }
