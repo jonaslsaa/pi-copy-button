@@ -100,6 +100,7 @@ function addButtons(md: Markdown): void {
 		blocks = [];
 		section = undefined;
 		const next = base.render.call(md, width);
+		section = undefined; // only needed while this render collects sections; don't keep the tokens alive
 		if (next === raw) blocks = previous; // Markdown's line cache: renderToken didn't run
 		raw = next;
 		if (out?.raw !== next || out.copied !== copied) out = { raw: next, copied, ...decorate(next, blocks, copied, width) };
