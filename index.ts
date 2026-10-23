@@ -1,7 +1,7 @@
 /**
  * Adds a clickable "⧉ copy" label to code blocks, blockquotes and sections between two `---` rules
  * in assistant messages. Copies raw Markdown, or plain text (`"pi-copy-button": { "format": "plain" }` in
- * Pi's settings.json); Option/Alt- or Ctrl-click copies the other format.
+ * Pi's settings.json, or `/copy-format`); Option/Alt- or Ctrl-click copies the other format.
  *
  * Pi has no hook for rendering assistant markdown, so this patches Pi internals:
  * `AssistantMessageComponent.updateContent` (to find each finished message's Markdown) and,
@@ -12,11 +12,12 @@
  * are hidden in the regular UI. Drag-selection keeps working: only plain clicks on a label
  * are handled.
  */
-import { AssistantMessageComponent, copyToClipboard, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { join } from "node:path";
+import { AssistantMessageComponent, copyToClipboard, type ExtensionAPI, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { type Component, Markdown, type TUI, TuiAltScreen, type TuiMouseEvent, type TuiMouseEventResult, visibleWidth } from "@earendil-works/pi-tui";
 import type { MarkedToken, Token } from "marked";
+import { configuredFormat, FORMATS, type Format, isFormat, saveFormat } from "./settings.ts";
 
-type Format = "raw" | "plain";
 type Block = Record<Format, string>;
 type Hit = { row: number; start: number; end: number; block: number };
 type Copied = { block: number; label: string };
@@ -48,6 +49,9 @@ const dim = (s: string) => `\x1b[2m${s}\x1b[22m`;
 let tui: TUI | undefined;
 let ctx: ExtensionContext | undefined;
 let format: Format = "raw";
+let chosen: Format | undefined; // set by /copy-format; Pi's in-memory settings don't see our write until /reload
+const other = (f: Format): Format => (f === "raw" ? "plain" : "raw");
+const describe = (f: Format) => (f === "raw" ? "raw Markdown" : "plain text");
 const fullscreen = () => tui === undefined || tui instanceof TuiAltScreen;
 
 function addButtons(md: Markdown): void {
@@ -108,7 +112,7 @@ function addButtons(md: Markdown): void {
 		const block = hit && blocks[hit.block];
 		if (!hit || !block) return undefined;
 		// Option/Alt (or Ctrl, which some terminals pass instead) copies the other format. Not Shift: terminals keep it for selection.
-		const as: Format = event.alt || event.ctrl ? (format === "raw" ? "plain" : "raw") : format;
+		const as: Format = event.alt || event.ctrl ? other(format) : format;
 		const text = block[as];
 		const done: Copied = { block: hit.block, label: as !== format && text !== block[format] ? DONE_AS[as] : DONE };
 		void copyToClipboard(text).then(
@@ -245,17 +249,27 @@ function patch(): void {
 	};
 }
 
-/** `"pi-copy-button": { "format": "plain" }` in Pi's settings.json (global or project); anything else means raw. */
-function configuredFormat(settings: object): Format {
-	const ours: unknown = "pi-copy-button" in settings ? settings["pi-copy-button"] : undefined;
-	return typeof ours === "object" && ours !== null && "format" in ours && ours.format === "plain" ? "plain" : "raw";
-}
-
 export default function (pi: ExtensionAPI) {
 	patch();
+	pi.registerCommand("copy-format", {
+		description: "Copy raw Markdown or plain text by default (no argument toggles)",
+		getArgumentCompletions: (prefix) => FORMATS.filter((f) => f.startsWith(prefix.trim())).map((f) => ({ value: f, label: f, description: describe(f) })),
+		handler: async (args, context) => {
+			const arg = args.trim();
+			const next = arg === "" ? other(format) : isFormat(arg) ? arg : undefined;
+			if (!next) return context.ui.notify("Usage: /copy-format [raw|plain]", "warning");
+			try {
+				saveFormat(join(getAgentDir(), "settings.json"), next);
+			} catch (error) {
+				return context.ui.notify(`Couldn't save the copy format: ${error instanceof Error ? error.message : String(error)}`, "error");
+			}
+			format = chosen = next;
+			context.ui.notify(`Copy labels now copy ${describe(next)}; Option-click copies ${describe(other(next))}.`, "info");
+		},
+	});
 	pi.on("session_start", async (_event, context) => {
 		ctx = context;
-		format = configuredFormat(pi.getSettings());
+		format = chosen ?? configuredFormat(pi.getSettings());
 		if (!context.hasUI) return;
 		// An empty widget: its factory is the only public way to reach the TUI (for requestRender and mode).
 		context.ui.setWidget("pi-copy-button", (t) => {

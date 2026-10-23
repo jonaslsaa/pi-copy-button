@@ -18,13 +18,13 @@ pi install npm:pi-copy-button
 
 ## Settings
 
-Copy plain text by default, in Pi's `settings.json` (`~/.pi/agent/settings.json`, or `.pi/settings.json` in a trusted project):
+`/copy-format plain` makes labels copy plain text by default, `/copy-format raw` goes back to Markdown, and `/copy-format` alone toggles. It applies right away and is saved in `~/.pi/agent/settings.json`:
 
 ```json
 { "pi-copy-button": { "format": "plain" } }
 ```
 
-`"raw"` (the default) copies Markdown. Pi keeps keys it doesn't know; run `/reload` after changing it.
+You can also set it by hand there or in a trusted project's `.pi/settings.json` (then `/reload`); a project value wins after the next reload.
 
 ## How it works (hacky)
 
