@@ -184,7 +184,8 @@ function inlineToPlain(tokens: Token[]): string {
 					return inlineToPlain(t.tokens);
 				case "link": {
 					const text = inlineToPlain(t.tokens);
-					return text === t.href || `mailto:${text}` === t.href ? text : `${text} (${t.href})`;
+					if (!text) return t.href;
+					return [text, `mailto:${text}`, `http://${text}`].includes(t.href) ? text : `${text} (${t.href})`;
 				}
 				case "text":
 					return t.tokens ? inlineToPlain(t.tokens) : t.text;
