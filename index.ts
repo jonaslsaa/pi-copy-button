@@ -1,5 +1,6 @@
 /**
- * Adds a clickable "⧉ copy" label to code blocks and blockquotes in assistant messages.
+ * Adds a clickable "⧉ copy" label to code blocks, blockquotes and sections between two `---` rules
+ * in assistant messages. Copies raw markdown.
  *
  * Pi has no hook for rendering assistant markdown, so this patches Pi internals:
  * `AssistantMessageComponent.updateContent` (to find each finished message's Markdown) and,
@@ -13,7 +14,7 @@
 import { AssistantMessageComponent, copyToClipboard, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Component, Markdown, type TUI, TuiAltScreen, type TuiMouseEvent, type TuiMouseEventResult, visibleWidth } from "@earendil-works/pi-tui";
 
-type Token = { type: string; text?: string };
+type Token = { type: string; text?: string; raw?: string };
 type Block = { text: string };
 type Hit = { row: number; start: number; end: number; block: number };
 
@@ -51,21 +52,31 @@ function addButtons(md: Markdown): void {
 
 	let depth = 0;
 	let blocks: Block[] = [];
+	let section: string[] | undefined; // raw markdown since the last top-level rule
 	let raw: string[] | undefined;
 	let copied: number | undefined;
 	let out: { raw: string[]; copied: number | undefined; lines: string[]; hits: Hit[] } | undefined;
+
+	const addBlock = (text: string, lines: string[]) => {
+		const last = lines.findLastIndex((l) => l !== "");
+		if (!text || last === -1) return;
+		lines[last] = mark(blocks.push({ text }) - 1) + lines[last];
+	};
 
 	self.renderToken = (token, width, nextTokenType, styleContext) => {
 		const top = depth === 0;
 		depth++;
 		try {
 			const lines = base.renderToken.call(md, token, width, nextTokenType, styleContext);
-			const copyable = token.type === "code" || token.type === "blockquote";
-			if (top && copyable && token.text && lines.some((l) => l !== "")) {
-				const i = blocks.push({ text: token.text }) - 1;
-				const last = lines.findLastIndex((l) => l !== "");
-				lines[last] = mark(i) + lines[last];
+			if (!top) return lines;
+			if (token.type === "hr") {
+				// A rule closes the open section (label on this rule) and opens the next one.
+				if (section) addBlock(section.join("").trim(), lines);
+				section = [];
+				return lines;
 			}
+			section?.push(token.raw ?? "");
+			if (token.type === "code" || token.type === "blockquote") addBlock(token.text ?? "", lines);
 			return lines;
 		} finally {
 			depth--;
@@ -75,6 +86,7 @@ function addButtons(md: Markdown): void {
 	self.render = (width) => {
 		const previous = blocks;
 		blocks = [];
+		section = undefined;
 		const next = base.render.call(md, width);
 		if (next === raw) blocks = previous; // Markdown's line cache: renderToken didn't run
 		raw = next;
@@ -102,7 +114,7 @@ function addButtons(md: Markdown): void {
 	};
 }
 
-/** Strips markers and right-aligns a label on each block's last row (a code block's closing fence). */
+/** Strips markers and right-aligns a label on each block's last row (a code block's closing fence, a section's closing rule). */
 function decorate(raw: string[], blocks: Block[], copied: number | undefined, width: number): { lines: string[]; hits: Hit[] } {
 	const lines: string[] = [];
 	const hits: Hit[] = [];
