@@ -183,6 +183,7 @@ function inlineToPlain(tokens: Token[]): string {
 				case "strong":
 				case "em":
 				case "del":
+				case "image": // its alt text, which can have formatting too
 					return inlineToPlain(t.tokens);
 				case "link": {
 					const text = inlineToPlain(t.tokens);
@@ -193,7 +194,6 @@ function inlineToPlain(tokens: Token[]): string {
 					return t.tokens ? inlineToPlain(t.tokens) : t.text;
 				case "codespan":
 				case "escape":
-				case "image":
 				case "html":
 					return t.text;
 				case "br":
