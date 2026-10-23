@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "node:test";
@@ -45,4 +45,22 @@ test("writes through a symlinked settings.json", () => {
 	symlinkSync(join(dir, "real.json"), join(dir, "settings.json"));
 	saveFormat(join(dir, "settings.json"), "plain");
 	assert.deepEqual(read(join(dir, "real.json")), { "pi-copy-button": { format: "plain" } });
+});
+
+test("refuses a dangling symlink and leaves it in place", () => {
+	const dir = tempDir();
+	const file = join(dir, "settings.json");
+	symlinkSync(join(dir, "missing.json"), file);
+	assert.throws(() => saveFormat(file, "plain"));
+	assert.ok(lstatSync(file).isSymbolicLink());
+	assert.equal(existsSync(join(dir, "missing.json")), false);
+});
+
+test("waits for Pi's settings lock and gives up if it's held", () => {
+	const dir = tempDir();
+	const file = join(dir, "settings.json");
+	writeFileSync(file, "{}");
+	mkdirSync(`${file}.lock`); // what proper-lockfile creates while Pi saves
+	assert.throws(() => saveFormat(file, "plain"), /lock/i);
+	assert.equal(readFileSync(file, "utf8"), "{}");
 });
