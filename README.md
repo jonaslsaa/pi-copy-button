@@ -9,10 +9,22 @@ pi install npm:pi-copy-button
 ```
 
 - The label sits right-aligned on the block's last line, and shows `✓ copied` for 1.5s.
-- Code blocks copy the code without fences or indent. Quotes copy their Markdown without the `>` markers. Sections (handy for drafts) copy the raw Markdown between the rules; the label sits on the closing rule.
+- Code blocks copy the code without fences or indent. Quotes copy their Markdown without the `>` markers. Sections (handy for drafts) copy the Markdown between the rules; the label sits on the closing rule.
+- Option-click (Alt; Ctrl works too in most terminals) copies the other format: plain text instead of Markdown, or the other way round if plain is your default. The label then says `✓ plain` or `✓ raw`. Code blocks are the same either way.
+- Plain text drops the Markdown syntax but keeps your line breaks: no `**`, `_` or backticks, headings without `#`, bullets as `- ` / `1. `, links as `text (url)`, tables as `a | b` rows.
 - Only finished assistant replies get labels (not thinking, not your own messages).
 - Fullscreen TUI only (Pi's default `tuiMode`). In regular mode the terminal owns the mouse.
 - Plain clicks elsewhere and drag-selection work as before.
+
+## Settings
+
+Copy plain text by default, in Pi's `settings.json` (`~/.pi/agent/settings.json`, or `.pi/settings.json` in a project):
+
+```json
+{ "pi-copy-button": { "format": "plain" } }
+```
+
+`"raw"` (the default) copies Markdown. Pi keeps keys it doesn't know; run `/reload` after changing it.
 
 ## How it works (hacky)
 
