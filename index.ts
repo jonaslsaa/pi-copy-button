@@ -134,7 +134,7 @@ function addButtons(md: Markdown): void {
 /** Plain text from Markdown tokens: the source without its syntax, so nothing is soft-wrapped. Each block keeps the line breaks that followed it in the source. */
 function blocksToPlain(tokens: Token[]): string {
 	return tokens
-		.map((token) => blockToPlain(token) + (/\n*$/.exec(token.raw)?.[0] ?? ""))
+		.map((token) => blockToPlain(token).replace(/\n+$/, "") + (/\n*$/.exec(token.raw)?.[0] ?? ""))
 		.join("")
 		.replace(/^\n+|\n+$/g, "");
 }
@@ -171,7 +171,7 @@ function blockToPlain(token: Token): string {
 		case "html":
 			return t.text.trim();
 		default:
-			return token.raw.replace(/\n+$/, ""); // blocksToPlain adds the trailing newlines back once
+			return token.raw;
 	}
 }
 
