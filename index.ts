@@ -171,7 +171,7 @@ function blockToPlain(token: Token): string {
 		case "html":
 			return t.text.trim();
 		default:
-			return token.raw;
+			return token.raw.replace(/\n+$/, ""); // blocksToPlain adds the trailing newlines back once
 	}
 }
 
