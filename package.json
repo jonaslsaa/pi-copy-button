@@ -26,5 +26,5 @@
   "repository": { "type": "git", "url": "git+https://github.com/jonaslsaa/pi-copy-button.git" },
   "homepage": "https://github.com/jonaslsaa/pi-copy-button#readme",
   "bugs": { "url": "https://github.com/jonaslsaa/pi-copy-button/issues" },
-  "files": ["index.ts", "settings.ts", "README.md", "LICENSE"]
+  "files": ["index.ts", "plain.ts", "settings.ts", "README.md", "LICENSE"]
 }

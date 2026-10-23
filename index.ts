@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { AssistantMessageComponent, copyToClipboard, type ExtensionAPI, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { type Component, Markdown, type TUI, TuiAltScreen, type TuiMouseEvent, type TuiMouseEventResult, visibleWidth } from "@earendil-works/pi-tui";
 import type { MarkedToken, Token } from "marked";
+import { blocksToPlain } from "./plain.ts";
 import { configuredFormat, FORMATS, type Format, isFormat, saveFormat } from "./settings.ts";
 
 type Block = Record<Format, string>;
@@ -129,82 +130,6 @@ function addButtons(md: Markdown): void {
 		);
 		return { handled: true };
 	};
-}
-
-/** Plain text from Markdown tokens: the source without its syntax, so nothing is soft-wrapped. Each block keeps the line breaks that followed it in the source. */
-function blocksToPlain(tokens: Token[]): string {
-	return tokens
-		.map((token) => blockToPlain(token).replace(/\n+$/, "") + (/\n*$/.exec(token.raw)?.[0] ?? ""))
-		.join("")
-		.replace(/^\n+|\n+$/g, "");
-}
-
-function blockToPlain(token: Token): string {
-	const t = token as MarkedToken;
-	switch (t.type) {
-		case "space":
-		case "def":
-			return "";
-		case "checkbox": // a task item's box, before its text (tight lists; loose ones have it inline)
-			return t.checked ? "[x] " : "[ ] ";
-		case "paragraph":
-		case "heading":
-			return inlineToPlain(t.tokens);
-		case "text":
-			return t.tokens ? inlineToPlain(t.tokens) : t.text;
-		case "code":
-			return t.text;
-		case "blockquote":
-			return blocksToPlain(t.tokens);
-		case "hr":
-			return "---";
-		case "list":
-			return t.items
-				.map((item, i) => {
-					const bullet = t.ordered ? `${(t.start === "" ? 1 : t.start) + i}. ` : "- ";
-					const body = blocksToPlain(item.tokens);
-					return bullet + body.replaceAll("\n", `\n${" ".repeat(bullet.length)}`).replaceAll(/^ +$/gm, "");
-				})
-				.join(t.loose ? "\n\n" : "\n");
-		case "table":
-			return [t.header, ...t.rows].map((row) => row.map((cell) => inlineToPlain(cell.tokens)).join(" | ")).join("\n");
-		case "html":
-			return t.text.trim();
-		default:
-			return token.raw;
-	}
-}
-
-function inlineToPlain(tokens: Token[]): string {
-	return tokens
-		.map((token) => {
-			const t = token as MarkedToken;
-			switch (t.type) {
-				case "strong":
-				case "em":
-				case "del":
-				case "image": // its alt text, which can have formatting too
-					return inlineToPlain(t.tokens);
-				case "link": {
-					const text = inlineToPlain(t.tokens);
-					if (!text) return t.href;
-					return [text, `mailto:${text}`, `http://${text}`].includes(t.href) ? text : `${text} (${t.href})`;
-				}
-				case "text":
-					return t.tokens ? inlineToPlain(t.tokens) : t.text;
-				case "codespan":
-				case "escape":
-				case "html":
-					return t.text;
-				case "br":
-					return "\n";
-				case "checkbox":
-					return t.checked ? "[x] " : "[ ] ";
-				default:
-					return token.raw;
-			}
-		})
-		.join("");
 }
 
 /** Strips markers and right-aligns a label on each block's last row (a code block's closing fence, a section's closing rule). */
