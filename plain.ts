@@ -4,10 +4,13 @@ import type { MarkedToken, Token } from "marked";
 /** Plain text from Markdown tokens: the source without its syntax, so nothing is soft-wrapped. Each block keeps the line breaks that followed it in the source. */
 export function blocksToPlain(tokens: Token[]): string {
 	return tokens
-		.map((token) => blockToPlain(token) + (/\n*$/.exec(token.raw)?.[0] ?? ""))
+		.map((token) => blockToPlain(token) + breaksAfter(token.raw))
 		.join("")
 		.replace(/^\n+|\n+$/g, "");
 }
+
+/** The line breaks in a token's trailing whitespace (a blank line may hold spaces). */
+const breaksAfter = (raw: string) => (/\s*$/.exec(raw)?.[0] ?? "").replaceAll(/[^\n]/g, "");
 
 function blockToPlain(token: Token): string {
 	const t = token as MarkedToken;
@@ -33,9 +36,10 @@ function blockToPlain(token: Token): string {
 				.map((item, i) => {
 					const bullet = t.ordered ? `${(t.start === "" ? 1 : t.start) + i}. ` : "- ";
 					const body = blocksToPlain(item.tokens);
-					return bullet + body.replaceAll("\n", `\n${" ".repeat(bullet.length)}`).replaceAll(/^ +$/gm, "");
+					const gap = i < t.items.length - 1 ? breaksAfter(item.raw) || "\n" : ""; // the last item's is blocksToPlain's
+					return bullet + body.replaceAll("\n", `\n${" ".repeat(bullet.length)}`).replaceAll(/^ +$/gm, "") + gap;
 				})
-				.join(t.loose ? "\n\n" : "\n");
+				.join("");
 		case "table":
 			return [t.header, ...t.rows].map((row) => row.map((cell) => inlineToPlain(cell.tokens)).join(" | ")).join("\n");
 		case "html":

@@ -10,6 +10,11 @@ test("drops Markdown syntax but keeps the source's line breaks", () => {
 	assert.equal(plain("- [x] done\n- two\n  3. three\n\n| a | b |\n|---|---|\n| 1 | **2** |"), "- [x] done\n- two\n  3. three\n\na | b\n1 | 2");
 });
 
+test("keeps blank lines that hold spaces, and each list gap as written", () => {
+	assert.equal(plain("first\n \nsecond"), "first\n\nsecond");
+	assert.equal(plain("- one\n\n- two\n- three\n\nafter"), "- one\n\n- two\n- three\n\nafter");
+});
+
 test("keeps code content, including a fenced block's trailing blank line", () => {
 	assert.equal(plain("```\nalpha\n\n```\nbeta"), "alpha\n\nbeta");
 	assert.equal(plain("para\n\n    indented\nnext"), "para\n\nindented\nnext");
