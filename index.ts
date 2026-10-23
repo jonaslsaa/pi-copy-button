@@ -131,12 +131,12 @@ function addButtons(md: Markdown): void {
 	};
 }
 
-/** Plain text from Markdown tokens: the source without its syntax, so nothing is soft-wrapped. */
+/** Plain text from Markdown tokens: the source without its syntax, so nothing is soft-wrapped. Each block keeps the line breaks that followed it in the source. */
 function blocksToPlain(tokens: Token[]): string {
 	return tokens
-		.map(blockToPlain)
-		.filter((text) => text !== "")
-		.join("\n\n");
+		.map((token) => blockToPlain(token) + (/\n*$/.exec(token.raw)?.[0] ?? ""))
+		.join("")
+		.replace(/^\n+|\n+$/g, "");
 }
 
 function blockToPlain(token: Token): string {
@@ -144,8 +144,9 @@ function blockToPlain(token: Token): string {
 	switch (t.type) {
 		case "space":
 		case "def":
-		case "checkbox":
 			return "";
+		case "checkbox": // a task item's box, before its text (tight lists; loose ones have it inline)
+			return t.checked ? "[x] " : "[ ] ";
 		case "paragraph":
 		case "heading":
 			return inlineToPlain(t.tokens);
@@ -161,12 +162,8 @@ function blockToPlain(token: Token): string {
 			return t.items
 				.map((item, i) => {
 					const bullet = t.ordered ? `${(t.start === "" ? 1 : t.start) + i}. ` : "- ";
-					const box = item.task ? (item.checked ? "[x] " : "[ ] ") : "";
-					const body = item.tokens
-						.map(blockToPlain)
-						.filter((text) => text !== "")
-						.join(item.loose ? "\n\n" : "\n");
-					return bullet + box + body.replaceAll("\n", `\n${" ".repeat(bullet.length)}`).replaceAll(/^ +$/gm, "");
+					const body = blocksToPlain(item.tokens);
+					return bullet + body.replaceAll("\n", `\n${" ".repeat(bullet.length)}`).replaceAll(/^ +$/gm, "");
 				})
 				.join(t.loose ? "\n\n" : "\n");
 		case "table":
@@ -201,6 +198,8 @@ function inlineToPlain(tokens: Token[]): string {
 					return t.text;
 				case "br":
 					return "\n";
+				case "checkbox":
+					return t.checked ? "[x] " : "[ ] ";
 				default:
 					return token.raw;
 			}
